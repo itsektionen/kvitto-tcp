@@ -1,0 +1,7 @@
+go.work
+.gitignore
+.git
+.idea
+.dockerignore
+Dockerfile
+kvitto-tcp
