@@ -96,7 +96,7 @@ func createKvitto(text string) (*Kvitto, error) {
 		if strings.Contains(v[0], "Beställd av") {
 			ent.SoldBy = v[5]
 		} else if strings.Contains(v[0], "Beställd") {
-			t, err := time.ParseInLocation("02 Jan 15:04", v[6], loc)
+			t, err := time.ParseInLocation("_2 Jan 15:04", v[6], loc)
 			if err != nil {
 				return nil, fmt.Errorf("unable to parse time: %v", err)
 			}
