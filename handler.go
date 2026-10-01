@@ -15,8 +15,22 @@ import (
 
 var (
 	// re       = regexp.MustCompile(`([A-Za-z]*)[:Nr. ]*? (\d*)\n*(\d+-\d+-\d+ \d+:\d+)\n+[-]{22}|-\n[ ]*([a-zA-ZÅÄÖåäö]*)\n*|([0-9-]*) st\n+([0-9A-Za-z ÅÄÖåäö&#-().!*é]*)\n|[A-Za-zåäöÅÄÖ]+ av:\n([a-z-A-Z]*)`)
-	re  = regexp.MustCompile(`\n*(\d+-\d+-\d+ \d+:\d+)\n+-{22}|-\n *(?P<category>[a-zA-ZÅÄÖåäö]*)\n*|(?P<count>[0-9-]*) st\n+(?P<product>[0-9A-Za-z ÅÄÖåäö&#-().!*é]*)\n|[A-Za-zåäöÅÄÖ]+ av: (?P<user>[a-z-A-Z]*)|Beställd: (?P<date>[0-9a-z :]+)`)
-	re2 = regexp.MustCompile("[0-9]{2}:[0-9]{2}") // Regexp for clock at end of receipt
+	re            = regexp.MustCompile(`\n*(\d+-\d+-\d+ \d+:\d+)\n+-{22}|-\n *(?P<category>[a-zA-ZÅÄÖåäö]*)\n*|(?P<count>[0-9-]*) st\n+(?P<product>[0-9A-Za-z ÅÄÖåäö&#-().!*é]*)\n|[A-Za-zåäöÅÄÖ]+ av: (?P<user>[a-z-A-Z]*)|Beställd: (?P<date>[0-9a-z :]+)`)
+	re2           = regexp.MustCompile("[0-9]{2}:[0-9]{2}") // Regexp for clock at end of receipt
+	monthReplacer = strings.NewReplacer(
+		" jan ", " Jan ",
+		" feb ", " Feb ",
+		" mar ", " Mar ",
+		" apr ", " Apr ",
+		" maj ", " May ",
+		" jun ", " Jun ",
+		" jul ", " Jul ",
+		" aug ", " Aug ",
+		" sep ", " Sep ",
+		" okt ", " Oct ",
+		" nov ", " Nov ",
+		" dec ", " Dec ",
+	)
 )
 
 func handle(conn net.Conn) {
@@ -96,7 +110,8 @@ func createKvitto(text string) (*Kvitto, error) {
 		if strings.Contains(v[0], "Beställd av") {
 			ent.SoldBy = v[5]
 		} else if strings.Contains(v[0], "Beställd") {
-			t, err := time.ParseInLocation("_2 Jan 15:04", v[6], loc)
+			date := monthReplacer.Replace(v[6])
+			t, err := time.ParseInLocation("_2 Jan 15:04", date, loc)
 			if err != nil {
 				return nil, fmt.Errorf("unable to parse time: %v", err)
 			}
