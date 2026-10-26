@@ -13,9 +13,20 @@ import (
 	"time"
 )
 
+const (
+	groupNumber   = "number"
+	groupCategory = "category"
+	groupCount    = "count"
+	groupProduct  = "product"
+	groupExtra    = "extra"
+	groupUser     = "user"
+	groupDate     = "date"
+)
+
 var (
-	// re       = regexp.MustCompile(`([A-Za-z]*)[:Nr. ]*? (\d*)\n*(\d+-\d+-\d+ \d+:\d+)\n+[-]{22}|-\n[ ]*([a-zA-ZÅÄÖåäö]*)\n*|([0-9-]*) st\n+([0-9A-Za-z ÅÄÖåäö&#-().!*é]*)\n|[A-Za-zåäöÅÄÖ]+ av:\n([a-z-A-Z]*)`)
-	re            = regexp.MustCompile(`\n*(\d+-\d+-\d+ \d+:\d+)\n+-{22}|-\n *(?P<category>[a-zA-ZÅÄÖåäö]*)\n*|(?P<count>[0-9-]*) st\n+(?P<product>[0-9A-Za-z ÅÄÖåäö&#-().!*é]*)\n|[A-Za-zåäöÅÄÖ]+ av: (?P<user>[a-z-A-Z]*)|Beställd: (?P<date>[0-9a-z :]+)`)
+	// re         = regexp.MustCompile(`([A-Za-z]*)[:Nr. ]*? (\d*)\n*(\d+-\d+-\d+ \d+:\d+)\n+[-]{22}|-\n[ ]*([a-zA-ZÅÄÖåäö]*)\n*|([0-9-]*) st\n+([0-9A-Za-z ÅÄÖåäö&#-().!*é]*)\n|[A-Za-zåäöÅÄÖ]+ av:\n([a-z-A-Z]*)`)
+	// re         = regexp.MustCompile(`\n*(\d+-\d+-\d+ \d+:\d+)\n+-{22}|-\n *(?P<category>[a-zA-ZÅÄÖåäö]*)\n*|(?P<count>[0-9-]*) st\n+(?P<product>[0-9A-Za-z ÅÄÖåäö&#-().!*é]*)\n|[A-Za-zåäöÅÄÖ]+ av: (?P<user>[a-z-A-Z]*)|Beställd: (?P<date>[0-9a-z :]+)`)
+	re            = regexp.MustCompile(`\n*(\d+-\d+-\d+ \d+:\d+)\n+-{22}|Nr. *(?P<number>\d+)\n|-\n *(?P<category>[a-zA-ZÅÄÖåäö]*)\n*|(?P<count>[0-9-]*) st\n+(?P<product>[0-9A-Za-z ÅÄÖåäö&#-().!*é]*)\n(?P<extra>[A-Za-zåäö\n ]+)\n|[A-Za-zåäöÅÄÖ]+ av: (?P<user>[a-z-A-Z]*)|Beställd: (?P<date>[0-9a-z :]+)`)
 	re2           = regexp.MustCompile("[0-9]{2}:[0-9]{2}") // Regexp for clock at end of receipt
 	monthReplacer = strings.NewReplacer(
 		" jan ", " Jan ",
@@ -108,9 +119,9 @@ func createKvitto(text string) (*Kvitto, error) {
 	category := ""
 	for _, v := range reRes {
 		if strings.Contains(v[0], "Beställd av") {
-			ent.SoldBy = v[5]
+			ent.SoldBy = v[re.SubexpIndex(groupUser)]
 		} else if strings.Contains(v[0], "Beställd") {
-			date := monthReplacer.Replace(v[6])
+			date := monthReplacer.Replace(v[re.SubexpIndex(groupDate)])
 			t, err := time.ParseInLocation("_2 Jan 15:04", date, loc)
 			if err != nil {
 				return nil, fmt.Errorf("unable to parse time: %v", err)
@@ -118,15 +129,22 @@ func createKvitto(text string) (*Kvitto, error) {
 			t = t.AddDate(time.Now().Year(), 0, 0)
 			ent.Time = t
 		} else if strings.HasPrefix(v[0], "-") {
-			if v[2] != "" {
-				category = v[2]
+			if v[re.SubexpIndex(groupCategory)] != "" {
+				category = v[re.SubexpIndex(groupCategory)]
 			}
+		} else if strings.HasPrefix(v[0], "Nr") {
+			number, err := strconv.Atoi(v[re.SubexpIndex(groupNumber)])
+			if err != nil {
+				return nil, fmt.Errorf("unable to parse number: %v", err)
+			}
+			ent.Number = number
 		} else {
-			count, _ := strconv.Atoi(v[3])
+			count, _ := strconv.Atoi(v[re.SubexpIndex(groupCount)])
 			prod := SoldProduct{
-				Category: category,
-				Name:     v[4],
-				Count:    count,
+				Category:  category,
+				Name:      v[re.SubexpIndex(groupProduct)],
+				Count:     count,
+				ExtraText: strings.TrimSpace(v[re.SubexpIndex(groupExtra)]),
 			}
 			ent.Sold = append(ent.Sold, prod)
 		}

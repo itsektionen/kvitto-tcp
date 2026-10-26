@@ -10,6 +10,7 @@ type Kvitto struct {
 	Timestamp int64         `json:"timestamp"`
 	Sold      []SoldProduct `json:"sold"`
 	SoldBy    string        `json:"sold_by"`
+	Number    int           `json:"number"`
 }
 
 func (k *Kvitto) publish() {
@@ -19,7 +20,8 @@ func (k *Kvitto) publish() {
 }
 
 type SoldProduct struct {
-	Category string `json:"category"`
-	Name     string `json:"name"`
-	Count    int    `json:"count"`
+	Category  string `json:"category"`
+	Name      string `json:"name"`
+	Count     int    `json:"count"`
+	ExtraText string `json:"extra_text"`
 }
