@@ -1,4 +1,4 @@
-FROM golang:1.27.1 AS builder
+FROM golang:1.27.3 AS builder
 COPY . /app
 RUN cd /app && go mod verify && go build
 
