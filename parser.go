@@ -15,8 +15,8 @@ type BongType int
 
 const (
 	BongUnknown BongType = 0
-	BongKvitto           = 1
-	BongMessage          = 2
+	BongKvitto  BongType = 1
+	BongMessage BongType = 2
 )
 
 type BongParser struct {
