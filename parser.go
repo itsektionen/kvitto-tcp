@@ -52,7 +52,7 @@ func parseMessage(message []byte) {
 			Sold: make([]SoldProduct, 0),
 		},
 	}
-	if err := kvittoParser.Parse(); err != nil {
+	if err := kvittoParser.parse(); err != nil {
 		kvittoParser.tokenizer.print()
 
 		log.Println("Could not create data out:", err.Error(), "raw:\n", formatHex(message))
@@ -68,20 +68,20 @@ func parseMessage(message []byte) {
 	}
 }
 
-func (p *BongParser) Parse() error {
+func (p *BongParser) parse() error {
 	if err := p.tokenizer.readToEnd(); err != nil {
 		return fmt.Errorf("Tokenizer error %w", err)
 	}
 
 	parseErrors := make([]error, 0)
 
-	err := p.ParseMessage()
+	err := p.parseMessage()
 	if err == nil {
 		return nil
 	}
 	parseErrors = append(parseErrors, err)
 
-	err = p.ParseKvitto()
+	err = p.parseKvitto()
 	if err == nil {
 		return nil
 	}
@@ -94,36 +94,36 @@ func (p *BongParser) Parse() error {
 	return errors.New(errorsText)
 }
 
-func (p *BongParser) Reset() {
+func (p *BongParser) reset() {
 	p.currentTokenIndex = 0
 }
 
-func (p *BongParser) ReadToken() *TokenBlock {
-	token := p.PeekToken()
-	p.DiscardToken()
+func (p *BongParser) readToken() *TokenBlock {
+	token := p.peekToken()
+	p.discardToken()
 	return token
 }
 
-func (p *BongParser) ReadTrimmed() string {
-	return strings.TrimSpace(p.ReadToken().text)
+func (p *BongParser) readTrimmed() string {
+	return strings.TrimSpace(p.readToken().text)
 }
 
-func (p *BongParser) PeekToken() *TokenBlock {
+func (p *BongParser) peekToken() *TokenBlock {
 	if len(p.tokenizer.tokenBlocks) <= p.currentTokenIndex {
 		return nil
 	}
 	return &p.tokenizer.tokenBlocks[p.currentTokenIndex]
 }
-func (p *BongParser) IsAtEnd() bool {
+func (p *BongParser) isAtEnd() bool {
 	return len(p.tokenizer.tokenBlocks) <= p.currentTokenIndex
 }
 
-func (p *BongParser) DiscardToken() {
+func (p *BongParser) discardToken() {
 	p.currentTokenIndex++
 }
 
-func (p *BongParser) ExpectFormat(format string) bool {
-	token := p.PeekToken()
+func (p *BongParser) expectFormat(format string) bool {
+	token := p.peekToken()
 	if token == nil {
 		return false
 	}
@@ -136,26 +136,26 @@ func (p *BongParser) ExpectFormat(format string) bool {
 	return true
 }
 
-func (p *BongParser) ExpectFormats(formats []string) bool {
+func (p *BongParser) expectFormats(formats []string) bool {
 	id := p.currentTokenIndex
 	for _, v := range formats {
-		if !p.ExpectFormat(v) {
+		if !p.expectFormat(v) {
 			return false
 		}
-		p.DiscardToken()
+		p.discardToken()
 	}
 	p.currentTokenIndex = id
 	return true
 }
 
-func (p *BongParser) ParseMessage() error {
-	p.Reset()
-	if !p.ExpectFormat("10B") {
+func (p *BongParser) parseMessage() error {
+	p.reset()
+	if !p.expectFormat("10B") {
 		return fmt.Errorf("Expected Kvitto")
 	}
-	message := p.ReadTrimmed()
+	message := p.readTrimmed()
 
-	nextToken := p.PeekToken()
+	nextToken := p.peekToken()
 	if nextToken == nil {
 		return fmt.Errorf("Early EOF")
 	}
@@ -174,17 +174,17 @@ var (
 	RegexFooter        = regexp.MustCompile("Beställd av: ([a-z-A-Z]+)\nBeställd: ([0-9a-z :]+)")
 )
 
-func (p *BongParser) ParseKvitto() error {
-	p.Reset()
-	if err := p.ParseHeader(); err != nil {
+func (p *BongParser) parseKvitto() error {
+	p.reset()
+	if err := p.parseHeader(); err != nil {
 		return fmt.Errorf("Head parse error %w", err)
 	}
 
-	if err := p.ParseBody(); err != nil {
+	if err := p.parseBody(); err != nil {
 		return fmt.Errorf("Body parse error %w", err)
 	}
 
-	if err := p.ParseFooter(); err != nil {
+	if err := p.parseFooter(); err != nil {
 		return fmt.Errorf("Footer parse error %w", err)
 	}
 
@@ -193,12 +193,12 @@ func (p *BongParser) ParseKvitto() error {
 	return nil
 }
 
-func (p *BongParser) ParseHeader() error {
-	if !p.ExpectFormats([]string{"30", "20", "20U", "20", "10"}) {
+func (p *BongParser) parseHeader() error {
+	if !p.expectFormats([]string{"30", "20", "20U", "20", "10"}) {
 		return errors.New("Wrong format")
 	}
 
-	token := p.ReadToken()
+	token := p.readToken()
 	if token == nil {
 		println("A")
 	}
@@ -210,9 +210,9 @@ func (p *BongParser) ParseHeader() error {
 	}
 	p.kvitto.TargetPrinter = matches[1]
 
-	p.DiscardToken() // "Beställning"
+	p.discardToken() // "Beställning"
 
-	kvittoName := p.ReadTrimmed()
+	kvittoName := p.readTrimmed()
 	switch kvittoName {
 	case "KvittoNr.":
 		p.kvitto.IsBong = false
@@ -223,37 +223,37 @@ func (p *BongParser) ParseHeader() error {
 	}
 
 	var err error
-	p.kvitto.Number, err = strconv.Atoi(p.ReadTrimmed())
+	p.kvitto.Number, err = strconv.Atoi(p.readTrimmed())
 	if err != nil {
 		return fmt.Errorf("Invalid kvitto number %w", err)
 	}
 
-	p.DiscardToken() // "-------------"
+	p.discardToken() // "-------------"
 
 	return nil
 }
 
-func (p *BongParser) ParseBody() error {
+func (p *BongParser) parseBody() error {
 	for {
-		if p.IsAtEnd() {
+		if p.isAtEnd() {
 			return nil
 		}
-		if p.ExpectFormat("0B") {
+		if p.expectFormat("0B") {
 			return nil // Footer;
 		}
-		if p.ExpectFormats([]string{"10B", "10CBU"}) {
+		if p.expectFormats([]string{"10B", "10CBU"}) {
 			// Category assignment
-			p.DiscardToken() // "\n"
-			p.currentCategory = p.ReadTrimmed()
+			p.discardToken() // "\n"
+			p.currentCategory = p.readTrimmed()
 		}
-		if p.ExpectFormat("10B") {
-			p.DiscardToken()
+		if p.expectFormat("10B") {
+			p.discardToken()
 		}
-		if !p.ExpectFormats([]string{"20B", "10B"}) {
+		if !p.expectFormats([]string{"20B", "10B"}) {
 			return errors.New("Wrong format")
 		}
 
-		matches := RegexSoldCount.FindStringSubmatch(p.ReadTrimmed())
+		matches := RegexSoldCount.FindStringSubmatch(p.readTrimmed())
 		if len(matches) <= 1 {
 			return errors.New("Cant find sold count")
 		}
@@ -266,11 +266,11 @@ func (p *BongParser) ParseBody() error {
 		if err != nil {
 			return err
 		}
-		currentSold.Name = p.ReadTrimmed()
+		currentSold.Name = p.readTrimmed()
 		currentSold.ExtraText = ""
 
-		if p.ExpectFormat("10B") {
-			extra_text := p.ReadTrimmed()
+		if p.expectFormat("10B") {
+			extra_text := p.readTrimmed()
 			if extra_text != "-----------------------" {
 				currentSold.ExtraText = extra_text
 			}
@@ -279,12 +279,12 @@ func (p *BongParser) ParseBody() error {
 	}
 }
 
-func (p *BongParser) ParseFooter() error {
-	if !p.ExpectFormat("0B") {
+func (p *BongParser) parseFooter() error {
+	if !p.expectFormat("0B") {
 		return errors.New("Wrong format")
 	}
 
-	matches := RegexFooter.FindStringSubmatch(p.ReadTrimmed())
+	matches := RegexFooter.FindStringSubmatch(p.readTrimmed())
 	if len(matches) <= 2 {
 		return errors.New("Cant find seller")
 	}

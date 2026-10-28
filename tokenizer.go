@@ -179,7 +179,7 @@ func (t *Tokenizer) read() error {
 		fallthrough
 	case 0x1d:
 		t.pushCurrentToken()
-		if err := t.EscPosMessage(b); err != nil {
+		if err := t.escPosMessage(b); err != nil {
 			return err
 		}
 	case 0xe5: // å
@@ -302,7 +302,7 @@ var EscCommands = map[uint16]EscCommand{
 	},
 }
 
-func (t *Tokenizer) EscPosMessage(firstByte byte) error {
+func (t *Tokenizer) escPosMessage(firstByte byte) error {
 	secondByte, err := t.reader.ReadByte()
 	if err != nil {
 		return err
