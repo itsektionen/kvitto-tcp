@@ -70,7 +70,7 @@ func parseMessage(message []byte) {
 
 func (p *BongParser) parse() error {
 	if err := p.tokenizer.readToEnd(); err != nil {
-		return fmt.Errorf("Tokenizer error %w", err)
+		return fmt.Errorf("tokenizer error %w", err)
 	}
 
 	parseErrors := make([]error, 0)
@@ -151,16 +151,16 @@ func (p *BongParser) expectFormats(formats []string) bool {
 func (p *BongParser) parseMessage() error {
 	p.reset()
 	if !p.expectFormat("10B") {
-		return fmt.Errorf("Expected Kvitto")
+		return fmt.Errorf("expected Kvitto")
 	}
 	message := p.readTrimmed()
 
 	nextToken := p.peekToken()
 	if nextToken == nil {
-		return fmt.Errorf("Early EOF")
+		return fmt.Errorf("early EOF")
 	}
 	if nextToken.specialType != FeedNLines {
-		return fmt.Errorf("Expected FeedNLines")
+		return fmt.Errorf("expected FeedNLines")
 	}
 
 	p.message.Message = message
@@ -177,15 +177,15 @@ var (
 func (p *BongParser) parseKvitto() error {
 	p.reset()
 	if err := p.parseHeader(); err != nil {
-		return fmt.Errorf("Head parse error %w", err)
+		return fmt.Errorf("head parse error %w", err)
 	}
 
 	if err := p.parseBody(); err != nil {
-		return fmt.Errorf("Body parse error %w", err)
+		return fmt.Errorf("body parse error %w", err)
 	}
 
 	if err := p.parseFooter(); err != nil {
-		return fmt.Errorf("Footer parse error %w", err)
+		return fmt.Errorf("footer parse error %w", err)
 	}
 
 	p.bongType = BongKvitto
@@ -195,7 +195,7 @@ func (p *BongParser) parseKvitto() error {
 
 func (p *BongParser) parseHeader() error {
 	if !p.expectFormats([]string{"30", "20", "20U", "20", "10"}) {
-		return errors.New("Wrong format")
+		return errors.New("wrong format")
 	}
 
 	token := p.readToken()
@@ -206,7 +206,7 @@ func (p *BongParser) parseHeader() error {
 	matches := RegexTargetPrinter.FindStringSubmatch(token.text)
 
 	if len(matches) <= 1 {
-		return errors.New("Could not find destination")
+		return errors.New("could not find destination")
 	}
 	p.kvitto.TargetPrinter = matches[1]
 
@@ -219,13 +219,13 @@ func (p *BongParser) parseHeader() error {
 	case "Nr.":
 		p.kvitto.IsBong = true
 	default:
-		return fmt.Errorf("Invalid kvitto number prefiz: %s", kvittoName)
+		return fmt.Errorf("invalid kvitto number prefiz: %s", kvittoName)
 	}
 
 	var err error
 	p.kvitto.Number, err = strconv.Atoi(p.readTrimmed())
 	if err != nil {
-		return fmt.Errorf("Invalid kvitto number %w", err)
+		return fmt.Errorf("invalid kvitto number %w", err)
 	}
 
 	p.discardToken() // "-------------"
@@ -250,12 +250,12 @@ func (p *BongParser) parseBody() error {
 			p.discardToken()
 		}
 		if !p.expectFormats([]string{"20B", "10B"}) {
-			return errors.New("Wrong format")
+			return errors.New("wrong format")
 		}
 
 		matches := RegexSoldCount.FindStringSubmatch(p.readTrimmed())
 		if len(matches) <= 1 {
-			return errors.New("Cant find sold count")
+			return errors.New("cant find sold count")
 		}
 		var err error
 
@@ -281,12 +281,12 @@ func (p *BongParser) parseBody() error {
 
 func (p *BongParser) parseFooter() error {
 	if !p.expectFormat("0B") {
-		return errors.New("Wrong format")
+		return errors.New("wrong format")
 	}
 
 	matches := RegexFooter.FindStringSubmatch(p.readTrimmed())
 	if len(matches) <= 2 {
-		return errors.New("Cant find seller")
+		return errors.New("cant find seller")
 	}
 	loc, err := time.LoadLocation("Europe/Stockholm")
 	if err != nil {

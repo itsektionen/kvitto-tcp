@@ -237,7 +237,7 @@ var EscCommands = map[uint16]EscCommand{
 			case 2:
 				t.currentToken.format.alignment = AlignRight
 			default:
-				return fmt.Errorf("UnknownAlign=%x", b[0])
+				return fmt.Errorf("unknownAlign=%x", b[0])
 			}
 			return nil
 		},
@@ -259,7 +259,7 @@ var EscCommands = map[uint16]EscCommand{
 			case 2:
 				t.currentToken.format.underline = Underline2x
 			default:
-				return fmt.Errorf("UnknownUnderline=%x", b[0])
+				return fmt.Errorf("unknownUnderline=%x", b[0])
 			}
 			return nil
 		},
@@ -273,7 +273,7 @@ var EscCommands = map[uint16]EscCommand{
 			case 1:
 				t.currentToken.format.bold = true
 			default:
-				return fmt.Errorf("UnknownEmphesis=%x", b[0])
+				return fmt.Errorf("unknownEmphesis=%x", b[0])
 			}
 			return nil
 		},
@@ -312,13 +312,13 @@ func (t *Tokenizer) escPosMessage(firstByte byte) error {
 	commandOperator, ok := EscCommands[commandId]
 	if !ok {
 		_, _ = t.reader.ReadByte()
-		return fmt.Errorf("UNKNOWN_%x", commandId)
+		return fmt.Errorf("unknown_%x", commandId)
 	} else {
 		operands := []byte{}
 		for _ = range commandOperator.operatorSize {
 			operand, err := t.reader.ReadByte()
 			if err != nil {
-				return fmt.Errorf("Command operand reading error: %w", err)
+				return fmt.Errorf("command operand reading error: %w", err)
 			}
 			operands = append(operands, operand)
 		}
