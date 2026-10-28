@@ -49,11 +49,7 @@ func TestSampleHexJSON(t *testing.T) {
 			if !utf8.Valid(entry) || bytes.ContainsAny(entry, "\x00\x1b\x1d") {
 				replaySample(t, entry)
 			} else {
-				receipt, err := createKvitto(string(entry))
-				if err != nil {
-					t.Fatalf("parse receipt: %v", err)
-				}
-				receipt.publish()
+				t.Fatalf("Invalid input data")
 			}
 
 			if len(client.payloads) != 1 {

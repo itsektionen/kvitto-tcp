@@ -3,14 +3,11 @@ package main
 import (
 	"bufio"
 	"bytes"
-	"fmt"
 	"io"
 	"log"
 	"net"
 	"regexp"
-	"strconv"
 	"strings"
-	"time"
 )
 
 const (
@@ -51,104 +48,31 @@ func handle(conn net.Conn) {
 	log.Println("Client connected:", conn.RemoteAddr())
 
 	reader := bufio.NewReader(conn)
+	combinedBuffer := bytes.Buffer{}
+
 	for {
-		var (
-			buffer bytes.Buffer
-			b      byte
-			err    error
-		)
-		for b, err = reader.ReadByte(); err == nil; b, err = reader.ReadByte() {
-			switch b {
-			case 0x1b:
-				_, _ = reader.Discard(2)
-			case 0x1d:
-				_, _ = reader.Discard(2)
-			case 0xe5: // å
-				buffer.Write([]byte{0xc3, 0xa5})
-			case 0xe4: // ä
-				buffer.Write([]byte{0xc3, 0xa4})
-			case 0xf6: // ö
-				buffer.Write([]byte{0xc3, 0xb6})
-
-			case 0xc5: // Å
-				buffer.Write([]byte{0xc3, 0x85})
-			case 0xc4: // Ä
-				buffer.Write([]byte{0xc3, 0x84})
-			case 0xd6: // Ö
-				buffer.Write([]byte{0xc3, 0x96})
-
-			case 0x0D, 0x00:
-				// Skip
-			default:
-				buffer.WriteByte(b)
-			}
-
-			if re2.FindString(buffer.String()) != "" {
-				break
-			}
-		}
+		b, err := reader.ReadByte()
 		if err == io.EOF {
+			log.Println("Client disconnected:", conn.RemoteAddr())
 			break
 		}
-
-		res, err := createKvitto(buffer.String())
 		if err != nil {
-			log.Println("Could not create data out:", err)
-			continue
+			println("Failed to read from buffer:", err.Error())
+			return
 		}
-		res.publish()
+		err = combinedBuffer.WriteByte(b)
+		if err != nil {
+			println("Failed to write to combined buffer:", err.Error())
+			return
+		}
 	}
+	message := combinedBuffer.Bytes()
 
-	log.Println("Client disconnected:", conn.RemoteAddr())
-}
+	res, err := createKvitto(message)
 
-func createKvitto(text string) (*Kvitto, error) {
-	text = strings.ReplaceAll(text, "\r", "")
-	reRes := re.FindAllStringSubmatch(text, -1)
-	ent := &Kvitto{
-		Time:   time.Now(),
-		Sold:   make([]SoldProduct, 0, 5),
-		SoldBy: "",
-	}
-
-	loc, err := time.LoadLocation("Europe/Stockholm")
 	if err != nil {
-		return nil, fmt.Errorf("unable to load location: %v", err)
+		log.Println("Could not create data out:", err.Error())
+		return
 	}
-
-	category := ""
-	for _, v := range reRes {
-		if strings.Contains(v[0], "Beställd av") {
-			ent.SoldBy = v[re.SubexpIndex(groupUser)]
-		} else if strings.Contains(v[0], "Beställd") {
-			date := monthReplacer.Replace(v[re.SubexpIndex(groupDate)])
-			t, err := time.ParseInLocation("_2 Jan 15:04", date, loc)
-			if err != nil {
-				return nil, fmt.Errorf("unable to parse time: %v", err)
-			}
-			t = t.AddDate(time.Now().Year(), 0, 0)
-			ent.Time = t
-		} else if strings.HasPrefix(v[0], "-") {
-			if v[re.SubexpIndex(groupCategory)] != "" {
-				category = v[re.SubexpIndex(groupCategory)]
-			}
-		} else if strings.HasPrefix(v[0], "Nr") {
-			number, err := strconv.Atoi(v[re.SubexpIndex(groupNumber)])
-			if err != nil {
-				return nil, fmt.Errorf("unable to parse number: %v", err)
-			}
-			ent.Number = number
-		} else {
-			count, _ := strconv.Atoi(v[re.SubexpIndex(groupCount)])
-			prod := SoldProduct{
-				Category:  category,
-				Name:      v[re.SubexpIndex(groupProduct)],
-				Count:     count,
-				ExtraText: strings.TrimSpace(v[re.SubexpIndex(groupExtra)]),
-			}
-			ent.Sold = append(ent.Sold, prod)
-		}
-	}
-
-	return ent, nil
+	res.publish()
 }

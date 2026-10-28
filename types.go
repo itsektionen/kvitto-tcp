@@ -6,11 +6,13 @@ import (
 )
 
 type Kvitto struct {
-	Time      time.Time     `json:"-"`
-	Timestamp int64         `json:"timestamp"`
-	Sold      []SoldProduct `json:"sold"`
-	SoldBy    string        `json:"sold_by"`
-	Number    int           `json:"number"`
+	Time          time.Time     `json:"-"`
+	TargetPrinter string        `json:"target_printer"`
+	Timestamp     int64         `json:"timestamp"`
+	Sold          []SoldProduct `json:"sold"`
+	SoldBy        string        `json:"sold_by"`
+	IsBong        bool          `json:"is_bong"`
+	Number        int           `json:"number"`
 }
 
 func (k *Kvitto) publish() {

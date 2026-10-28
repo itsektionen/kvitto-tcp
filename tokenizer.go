@@ -1,0 +1,331 @@
+package main
+
+import (
+	"bytes"
+	"encoding/binary"
+	"fmt"
+	"io"
+	"regexp"
+	"strings"
+)
+
+type Alignment int
+
+const (
+	AlignLeft   Alignment = 0
+	AlignCenter           = 1
+	AlignRight            = 2
+)
+
+type Underline int
+
+const (
+	UnderlineNone Underline = 0
+	Underline1x             = 1
+	Underline2x             = 2
+)
+
+type TextFormat struct {
+	characterSize byte
+	alignment     Alignment
+	bold          bool
+	underline     Underline
+}
+
+type SpecialBlockType int
+
+const (
+	Text       SpecialBlockType = 0
+	PartialCut                  = 1
+	FeedNLines                  = 2
+)
+
+func (t SpecialBlockType) name() string {
+	switch t {
+	case Text:
+		return "Text"
+	case PartialCut:
+		return "PartialCut"
+	case FeedNLines:
+		return "FeedNLines"
+	default:
+		return "Unknown"
+	}
+}
+
+func (t *TextFormat) shortForm() string {
+	s := fmt.Sprintf("%x", t.characterSize)
+	switch t.alignment {
+	case AlignLeft:
+	case AlignCenter:
+		s += "C"
+	case AlignRight:
+		s += "R"
+	default:
+		s += "A?"
+	}
+	if t.bold {
+		s += "B"
+	}
+	switch t.underline {
+	case UnderlineNone:
+	case Underline1x:
+		s += "u"
+	case Underline2x:
+		s += "U"
+	default:
+		s += "U?"
+	}
+	return s
+}
+
+func (t *TextFormat) print() {
+	fmt.Printf("[Size: %x, Align: %d, Bold: %t, Underline: %d]", t.characterSize, t.alignment, t.bold, t.underline)
+}
+
+func (t1 *TextFormat) equals(t2 *TextFormat) bool {
+	if t1.alignment != t2.alignment {
+		return false
+	}
+	if t1.bold != t2.bold {
+		return false
+	}
+	if t1.characterSize != t2.characterSize {
+		return false
+	}
+	if t1.underline != t2.underline {
+		return false
+	}
+	return true
+}
+
+type TokenBlock struct {
+	format      TextFormat
+	text        string
+	specialType SpecialBlockType
+}
+
+func (t *TokenBlock) print() {
+	if t.specialType == Text {
+		fmt.Printf("%s: %s\n", t.format.shortForm(), strings.ReplaceAll(t.text, "\n", "\\n"))
+	} else {
+		fmt.Printf("[Special: %s ]\n", t.specialType.name())
+	}
+}
+
+var endOfReceiptRegex = regexp.MustCompile("Beställd: [0-9]+ [a+z]+ [0-9]+:[0-9]+") // Regexp for final line
+func (t *TokenBlock) isClosingToken() bool {
+	if (!t.format.equals(&TextFormat{
+		bold:          true,
+		characterSize: 0,
+		alignment:     AlignLeft,
+		underline:     UnderlineNone,
+	})) {
+		return false
+	}
+	return endOfReceiptRegex.FindString(t.text) != ""
+}
+
+type TokenBlocks []TokenBlock
+
+type Tokenizer struct {
+	tokenBlocks  TokenBlocks
+	currentToken TokenBlock
+	reader       *bytes.Reader
+}
+
+func (t *Tokenizer) readToEnd() error {
+	for {
+		err := t.read()
+		if err == io.EOF {
+			t.pushCurrentToken()
+			break
+		}
+		if err != nil {
+			return err
+		}
+		if t.currentToken.isClosingToken() {
+			t.pushCurrentToken()
+			break
+		}
+	}
+	return nil
+}
+
+func (t *Tokenizer) pushCurrentToken() {
+	if t.currentToken.text == "" && t.currentToken.specialType == Text {
+		return
+	}
+	t.tokenBlocks = append(t.tokenBlocks, t.currentToken)
+	t.currentToken.text = ""
+	t.currentToken.specialType = Text
+}
+
+func (t *Tokenizer) pushSpecialToken(special SpecialBlockType) {
+	t.pushCurrentToken()
+	t.currentToken.specialType = special
+	t.pushCurrentToken()
+}
+
+func (t *Tokenizer) read() error {
+	b, err := t.reader.ReadByte()
+	if err != nil {
+		return err
+	}
+	switch b {
+	case 0x1b:
+		fallthrough
+	case 0x1c:
+		fallthrough
+	case 0x1d:
+		t.pushCurrentToken()
+		if err := t.EscPosMessage(b); err != nil {
+			return err
+		}
+	case 0xe5: // å
+		t.currentToken.text += "å"
+	case 0xe4: // ä
+		t.currentToken.text += "ä"
+	case 0xf6: // ö
+		t.currentToken.text += "ö"
+
+	case 0xc5: // Å
+		t.currentToken.text += "Å"
+	case 0xc4: // Ä
+		t.currentToken.text += "Ä"
+	case 0xd6: // Ö
+		t.currentToken.text += "Ö"
+	case 0x0D /* Carriage Return */, 0x00:
+		// Skip
+	default:
+		if b > 127 {
+			fmt.Printf("Invalid non-ascii character: %x\n", b)
+		} else {
+			t.currentToken.text += string(rune(b))
+		}
+	}
+	return nil
+}
+
+func (t *Tokenizer) print() {
+	for _, v := range t.tokenBlocks {
+		v.print()
+	}
+}
+
+type EscCommand struct {
+	operatorSize  int
+	handleCommand func(*Tokenizer, []byte) error
+}
+
+var EscCommands = map[uint16]EscCommand{
+	0x1b61: EscCommand{ // Character Size
+		operatorSize: 1,
+		handleCommand: func(t *Tokenizer, b []byte) error {
+			switch b[0] {
+			case 48:
+				fallthrough
+			case 0:
+				t.currentToken.format.alignment = AlignLeft
+				return nil
+			case 49:
+				fallthrough
+			case 1:
+				t.currentToken.format.alignment = AlignCenter
+			case 50:
+				fallthrough
+			case 2:
+				t.currentToken.format.alignment = AlignRight
+			default:
+				return fmt.Errorf("UnknownAlign=%x", b[0])
+			}
+			return nil
+		},
+	},
+	0x1b2d: EscCommand{ // Underline
+		operatorSize: 1,
+		handleCommand: func(t *Tokenizer, b []byte) error {
+			switch b[0] {
+			case 48:
+				fallthrough
+			case 0:
+				t.currentToken.format.underline = UnderlineNone
+			case 49:
+				fallthrough
+			case 1:
+				t.currentToken.format.underline = Underline1x
+			case 50:
+				fallthrough
+			case 2:
+				t.currentToken.format.underline = Underline2x
+			default:
+				return fmt.Errorf("UnknownUnderline=%x", b[0])
+			}
+			return nil
+		},
+	},
+	0x1b45: EscCommand{ // Emphesis
+		operatorSize: 1,
+		handleCommand: func(t *Tokenizer, b []byte) error {
+			switch b[0] {
+			case 0:
+				t.currentToken.format.bold = false
+			case 1:
+				t.currentToken.format.bold = true
+			default:
+				return fmt.Errorf("UnknownEmphesis=%x", b[0])
+			}
+			return nil
+		},
+	},
+	0x1b64: EscCommand{ // Feed n lines
+		operatorSize: 1,
+		handleCommand: func(t *Tokenizer, b []byte) error {
+			t.pushSpecialToken(FeedNLines)
+			return nil
+		},
+	},
+	0x1b69: EscCommand{ // Partial cut
+		operatorSize: 0,
+		handleCommand: func(t *Tokenizer, b []byte) error {
+			t.pushSpecialToken(PartialCut)
+			return nil
+		},
+	},
+	0x1d21: EscCommand{
+		operatorSize: 1,
+		handleCommand: func(t *Tokenizer, b []byte) error {
+
+			t.currentToken.format.characterSize = b[0]
+			return nil
+		},
+	},
+}
+
+func (t *Tokenizer) EscPosMessage(firstByte byte) error {
+	secondByte, err := t.reader.ReadByte()
+	if err != nil {
+		return err
+	}
+
+	commandId := binary.BigEndian.Uint16([]byte{firstByte, secondByte})
+	commandOperator, ok := EscCommands[commandId]
+	if !ok {
+		_, _ = t.reader.ReadByte()
+		return fmt.Errorf("UNKNOWN_%x", commandId)
+	} else {
+		operands := []byte{}
+		for _ = range commandOperator.operatorSize {
+			operand, err := t.reader.ReadByte()
+			if err != nil {
+				return fmt.Errorf("Command operand reading error: %w", err)
+			}
+			operands = append(operands, operand)
+		}
+		if err := commandOperator.handleCommand(t, operands); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
