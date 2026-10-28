@@ -185,19 +185,6 @@ func (t *Tokenizer) read() error {
 		if err := t.escPosMessage(b); err != nil {
 			return err
 		}
-	// case 0xe5: // å
-	// 	t.currentToken.text += "å"
-	// case 0xe4: // ä
-	// 	t.currentToken.text += "ä"
-	// case 0xf6: // ö
-	// 	t.currentToken.text += "ö"
-
-	// case 0xc5: // Å
-	// 	t.currentToken.text += "Å"
-	// case 0xc4: // Ä
-	// 	t.currentToken.text += "Ä"
-	// case 0xd6: // Ö
-	// 	t.currentToken.text += "Ö"
 	default:
 		// Normal text is UTF-16 Little-endian
 		secondByte, err := t.reader.ReadByte()
