@@ -19,13 +19,12 @@ The current connection settings are defined in [main.go](main.go) and
 
 | Setting      | Value                              |
 |--------------|------------------------------------|
-| TCP listener | `0.0.0.0:4321`                     |
+| TCP listener | `0.0.0.0:9100`                     |
 | MQTT broker  | `tcp://server.insektionen.se:1883` |
-| MQTT topic   | `kistan/kvitto`                    |
+| MQTT topic   | `kistan/bong`                      |
 
 The service connects to MQTT before opening the TCP listener. Configure the
-receipt source or serial-to-TCP bridge to send printer data to this machine on
-port `4321`.
+receipt source to send printer data to this machine on port `9100`.
 
 Each JSON payload contains `timestamp` (Unix seconds), `number`, `sold_by`, and
 a `sold` array with `category`, `name`, `count`, and `extra_text`. Receipt times
@@ -39,23 +38,22 @@ The [samples](samples) directory contains captured receipt data:
 | File                         | Contents                                                                                                           |
 |------------------------------|--------------------------------------------------------------------------------------------------------------------|
 | [dump.bin](samples/dump.bin) | Raw printer bytes for receipt `225555`, including control commands and NUL bytes.                                  |
-| [hex.txt](samples/hex.txt)   | Hex-encoded samples, with one complete receipt per row. The current receipts are `225555`, `225736`, and `225737`. |
+| [hex.txt](samples/hex.txt)   | Hex-encoded samples, with one complete receipt/message per row.                                                    |
 
-The first hex row is identical to `dump.bin`. The other two rows contain receipt
-text already decoded to UTF-8. The sample test sends raw printer data through
-the TCP handler and passes decoded text directly to the receipt parser.
+The first hex row is identical to `dump.bin`. The sample test sends raw printer data
+through the TCP handler and passes decoded text directly to the receipt parser.
 
 ## Capturing a sample
 
-With `nc` (netcat) and `xxd` installed, stop the service to free port `4321`,
+With `nc` (netcat) and `xxd` installed, stop the service to free port `9100`,
 then run this from the repository root:
 
 ```sh
-{ printf '\n'; nc -l 4321 | xxd -p -c 0; } >> samples/hex.txt
+{ printf '\n'; nc -l 9100 | xxd -p -c 0; } >> samples/hex.txt
 ```
 
-Point the receipt source or serial-to-TCP bridge at the capture machine's IP
-address and port `4321`. Send one complete receipt, then close the sender's
+Point the receipt source to the capture machine's IP
+address and port `9100`. Send one complete receipt, then close the sender's
 connection to finish the capture. Each run appends one hex row directly to
 `samples/hex.txt`. The leading newline keeps entries separate; blank rows are
 ignored by the test.

@@ -7,7 +7,6 @@ import (
 	"io"
 	"log"
 	"net"
-	"regexp"
 	"strings"
 )
 
@@ -22,10 +21,6 @@ const (
 )
 
 var (
-	// re         = regexp.MustCompile(`([A-Za-z]*)[:Nr. ]*? (\d*)\n*(\d+-\d+-\d+ \d+:\d+)\n+[-]{22}|-\n[ ]*([a-zA-ZÅÄÖåäö]*)\n*|([0-9-]*) st\n+([0-9A-Za-z ÅÄÖåäö&#-().!*é]*)\n|[A-Za-zåäöÅÄÖ]+ av:\n([a-z-A-Z]*)`)
-	// re         = regexp.MustCompile(`\n*(\d+-\d+-\d+ \d+:\d+)\n+-{22}|-\n *(?P<category>[a-zA-ZÅÄÖåäö]*)\n*|(?P<count>[0-9-]*) st\n+(?P<product>[0-9A-Za-z ÅÄÖåäö&#-().!*é]*)\n|[A-Za-zåäöÅÄÖ]+ av: (?P<user>[a-z-A-Z]*)|Beställd: (?P<date>[0-9a-z :]+)`)
-	re            = regexp.MustCompile(`\n*(\d+-\d+-\d+ \d+:\d+)\n+-{22}|Nr. *(?P<number>\d+)\n|-\n *(?P<category>[a-zA-ZÅÄÖåäö]*)\n*|(?P<count>[0-9-]*) st\n+(?P<product>[0-9A-Za-z ÅÄÖåäö&#-().!*é]*)\n(?P<extra>[A-Za-zåäö\n ]+)\n|[A-Za-zåäöÅÄÖ]+ av: (?P<user>[a-z-A-Z]*)|Beställd: (?P<date>[0-9a-z :]+)`)
-	re2           = regexp.MustCompile("[0-9]{2}:[0-9]{2}") // Regexp for clock at end of receipt
 	monthReplacer = strings.NewReplacer(
 		" jan ", " Jan ",
 		" feb ", " Feb ",
