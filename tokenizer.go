@@ -13,16 +13,16 @@ type Alignment int
 
 const (
 	AlignLeft   Alignment = 0
-	AlignCenter           = 1
-	AlignRight            = 2
+	AlignCenter Alignment = 1
+	AlignRight  Alignment = 2
 )
 
 type Underline int
 
 const (
 	UnderlineNone Underline = 0
-	Underline1x             = 1
-	Underline2x             = 2
+	Underline1x   Underline = 1
+	Underline2x   Underline = 2
 )
 
 type TextFormat struct {
@@ -36,8 +36,8 @@ type SpecialBlockType int
 
 const (
 	Text       SpecialBlockType = 0
-	PartialCut                  = 1
-	FeedNLines                  = 2
+	PartialCut SpecialBlockType = 1
+	FeedNLines SpecialBlockType = 2
 )
 
 func (t SpecialBlockType) name() string {
@@ -77,10 +77,6 @@ func (t *TextFormat) shortForm() string {
 		s += "U?"
 	}
 	return s
-}
-
-func (t *TextFormat) print() {
-	fmt.Printf("[Size: %x, Align: %d, Bold: %t, Underline: %d]", t.characterSize, t.alignment, t.bold, t.underline)
 }
 
 func (t1 *TextFormat) equals(t2 *TextFormat) bool {
@@ -315,7 +311,7 @@ func (t *Tokenizer) escPosMessage(firstByte byte) error {
 		return fmt.Errorf("unknown_%x", commandId)
 	} else {
 		operands := []byte{}
-		for _ = range commandOperator.operatorSize {
+		for range commandOperator.operatorSize {
 			operand, err := t.reader.ReadByte()
 			if err != nil {
 				return fmt.Errorf("command operand reading error: %w", err)
