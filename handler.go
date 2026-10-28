@@ -68,15 +68,9 @@ func handle(conn net.Conn) {
 		}
 	}
 	message := combinedBuffer.Bytes()
-	mq.Publish("kistan/kvitto/raw", 0, false, message)
+	mq.Publish("kistan/bong/raw", 0, false, message)
 
-	res, err := createKvitto(message)
-
-	if err != nil {
-		log.Println("Could not create data out:", err.Error(), "raw:\n", formatHex(message))
-		return
-	}
-	res.publish()
+	parseMessage(message)
 }
 
 func formatHex(data []byte) string {

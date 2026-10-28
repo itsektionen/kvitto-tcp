@@ -4,20 +4,31 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"log"
 	"regexp"
 	"strconv"
 	"strings"
 	"time"
 )
 
-type KvittoParser struct {
+type BongType int
+
+const (
+	BongUnknown BongType = 0
+	BongKvitto           = 1
+	BongMessage          = 2
+)
+
+type BongParser struct {
 	tokenizer         Tokenizer
+	bongType          BongType
 	kvitto            Kvitto
+	message           Message
 	currentCategory   string
 	currentTokenIndex int
 }
 
-func createKvitto(message []byte) (Kvitto, error) {
+func parseMessage(message []byte) {
 	currentFormat := TextFormat{
 		bold:          false,
 		characterSize: 0,
@@ -25,7 +36,7 @@ func createKvitto(message []byte) (Kvitto, error) {
 		alignment:     AlignLeft,
 	}
 
-	kvittoParser := KvittoParser{
+	kvittoParser := BongParser{
 		tokenizer: Tokenizer{
 			tokenBlocks: make(TokenBlocks, 0),
 			currentToken: TokenBlock{
@@ -44,57 +55,74 @@ func createKvitto(message []byte) (Kvitto, error) {
 	if err := kvittoParser.Parse(); err != nil {
 		kvittoParser.tokenizer.print()
 
-		return kvittoParser.kvitto, fmt.Errorf("Error parsing kvitto %w", err)
+		log.Println("Could not create data out:", err.Error(), "raw:\n", formatHex(message))
+	}
+	switch kvittoParser.bongType {
+	case BongKvitto:
+		kvittoParser.kvitto.publish()
+	case BongMessage:
+		kvittoParser.message.publish()
+	default:
+		log.Println("Invalid bong type:", kvittoParser.bongType)
 	}
 
-	return kvittoParser.kvitto, nil
 }
 
-func (p *KvittoParser) Parse() error {
+func (p *BongParser) Parse() error {
 	if err := p.tokenizer.readToEnd(); err != nil {
 		return fmt.Errorf("Tokenizer error %w", err)
 	}
 
-	if err := p.ParseHeader(); err != nil {
-		return fmt.Errorf("Head parse error %w", err)
-	}
+	parseErrors := make([]error, 0)
 
-	if err := p.ParseBody(); err != nil {
-		return fmt.Errorf("Body parse error %w", err)
+	err := p.ParseMessage()
+	if err == nil {
+		return nil
 	}
+	parseErrors = append(parseErrors, err)
 
-	if err := p.ParseFooter(); err != nil {
-		return fmt.Errorf("Footer parse error %w", err)
+	err = p.ParseKvitto()
+	if err == nil {
+		return nil
 	}
+	parseErrors = append(parseErrors, err)
 
-	return nil
+	errorsText := "Failed to parse as known format:\n"
+	for _, v := range parseErrors {
+		errorsText += v.Error() + "\n"
+	}
+	return errors.New(errorsText)
 }
 
-func (p *KvittoParser) ReadToken() *TokenBlock {
+func (p *BongParser) Reset() {
+	p.currentTokenIndex = 0
+}
+
+func (p *BongParser) ReadToken() *TokenBlock {
 	token := p.PeekToken()
 	p.DiscardToken()
 	return token
 }
 
-func (p *KvittoParser) ReadTrimmed() string {
+func (p *BongParser) ReadTrimmed() string {
 	return strings.TrimSpace(p.ReadToken().text)
 }
 
-func (p *KvittoParser) PeekToken() *TokenBlock {
+func (p *BongParser) PeekToken() *TokenBlock {
 	if len(p.tokenizer.tokenBlocks) <= p.currentTokenIndex {
 		return nil
 	}
 	return &p.tokenizer.tokenBlocks[p.currentTokenIndex]
 }
-func (p *KvittoParser) IsAtEnd() bool {
+func (p *BongParser) IsAtEnd() bool {
 	return len(p.tokenizer.tokenBlocks) <= p.currentTokenIndex
 }
 
-func (p *KvittoParser) DiscardToken() {
+func (p *BongParser) DiscardToken() {
 	p.currentTokenIndex++
 }
 
-func (p *KvittoParser) ExpectFormat(format string) bool {
+func (p *BongParser) ExpectFormat(format string) bool {
 	token := p.PeekToken()
 	if token == nil {
 		return false
@@ -108,7 +136,7 @@ func (p *KvittoParser) ExpectFormat(format string) bool {
 	return true
 }
 
-func (p *KvittoParser) ExpectFormats(formats []string) bool {
+func (p *BongParser) ExpectFormats(formats []string) bool {
 	id := p.currentTokenIndex
 	for _, v := range formats {
 		if !p.ExpectFormat(v) {
@@ -120,13 +148,52 @@ func (p *KvittoParser) ExpectFormats(formats []string) bool {
 	return true
 }
 
+func (p *BongParser) ParseMessage() error {
+	p.Reset()
+	if !p.ExpectFormat("10B") {
+		return fmt.Errorf("Expected Kvitto")
+	}
+	message := p.ReadTrimmed()
+
+	nextToken := p.PeekToken()
+	if nextToken == nil {
+		return fmt.Errorf("Early EOF")
+	}
+	if nextToken.specialType != FeedNLines {
+		return fmt.Errorf("Expected FeedNLines")
+	}
+
+	p.message.Message = message
+	p.bongType = BongMessage
+	return nil
+}
+
 var (
 	RegexTargetPrinter = regexp.MustCompile("TILL ([a-zA-ZåäöÅÄÖ]+)")
 	RegexSoldCount     = regexp.MustCompile("([0-9]+) st")
 	RegexFooter        = regexp.MustCompile("Beställd av: ([a-z-A-Z]+)\nBeställd: ([0-9a-z :]+)")
 )
 
-func (p *KvittoParser) ParseHeader() error {
+func (p *BongParser) ParseKvitto() error {
+	p.Reset()
+	if err := p.ParseHeader(); err != nil {
+		return fmt.Errorf("Head parse error %w", err)
+	}
+
+	if err := p.ParseBody(); err != nil {
+		return fmt.Errorf("Body parse error %w", err)
+	}
+
+	if err := p.ParseFooter(); err != nil {
+		return fmt.Errorf("Footer parse error %w", err)
+	}
+
+	p.bongType = BongKvitto
+
+	return nil
+}
+
+func (p *BongParser) ParseHeader() error {
 	if !p.ExpectFormats([]string{"30", "20", "20U", "20", "10"}) {
 		return errors.New("Wrong format")
 	}
@@ -166,7 +233,7 @@ func (p *KvittoParser) ParseHeader() error {
 	return nil
 }
 
-func (p *KvittoParser) ParseBody() error {
+func (p *BongParser) ParseBody() error {
 	for {
 		if p.IsAtEnd() {
 			return nil
@@ -212,7 +279,7 @@ func (p *KvittoParser) ParseBody() error {
 	}
 }
 
-func (p *KvittoParser) ParseFooter() error {
+func (p *BongParser) ParseFooter() error {
 	if !p.ExpectFormat("0B") {
 		return errors.New("Wrong format")
 	}

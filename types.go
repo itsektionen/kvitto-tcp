@@ -14,11 +14,19 @@ type Kvitto struct {
 	IsBong        bool          `json:"is_bong"`
 	Number        int           `json:"number"`
 }
+type Message struct {
+	Message string `json:"message"`
+}
+
+func (m *Message) publish() {
+	data, _ := json.Marshal(m)
+	mq.Publish("kistan/bong/message", 0, false, data)
+}
 
 func (k *Kvitto) publish() {
 	k.Timestamp = k.Time.Unix()
 	data, _ := json.Marshal(k)
-	mq.Publish("kistan/kvitto", 0, false, data)
+	mq.Publish("kistan/bong/kvitto", 0, false, data)
 }
 
 type SoldProduct struct {
