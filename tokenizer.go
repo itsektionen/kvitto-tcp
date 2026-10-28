@@ -7,6 +7,7 @@ import (
 	"io"
 	"regexp"
 	"strings"
+	"unicode/utf16"
 )
 
 type Alignment int
@@ -98,6 +99,7 @@ func (t1 *TextFormat) equals(t2 *TextFormat) bool {
 type TokenBlock struct {
 	format      TextFormat
 	text        string
+	rawData     []uint16
 	specialType SpecialBlockType
 }
 
@@ -149,11 +151,16 @@ func (t *Tokenizer) readToEnd() error {
 }
 
 func (t *Tokenizer) pushCurrentToken() {
+	runes := utf16.Decode(t.currentToken.rawData)
+	for _, r := range runes {
+		t.currentToken.text += string(r)
+	}
 	if t.currentToken.text == "" && t.currentToken.specialType == Text {
 		return
 	}
 	t.tokenBlocks = append(t.tokenBlocks, t.currentToken)
 	t.currentToken.text = ""
+	t.currentToken.rawData = make([]uint16, 0)
 	t.currentToken.specialType = Text
 }
 
@@ -178,27 +185,26 @@ func (t *Tokenizer) read() error {
 		if err := t.escPosMessage(b); err != nil {
 			return err
 		}
-	case 0xe5: // å
-		t.currentToken.text += "å"
-	case 0xe4: // ä
-		t.currentToken.text += "ä"
-	case 0xf6: // ö
-		t.currentToken.text += "ö"
+	// case 0xe5: // å
+	// 	t.currentToken.text += "å"
+	// case 0xe4: // ä
+	// 	t.currentToken.text += "ä"
+	// case 0xf6: // ö
+	// 	t.currentToken.text += "ö"
 
-	case 0xc5: // Å
-		t.currentToken.text += "Å"
-	case 0xc4: // Ä
-		t.currentToken.text += "Ä"
-	case 0xd6: // Ö
-		t.currentToken.text += "Ö"
-	case 0x0D /* Carriage Return */, 0x00:
-		// Skip
+	// case 0xc5: // Å
+	// 	t.currentToken.text += "Å"
+	// case 0xc4: // Ä
+	// 	t.currentToken.text += "Ä"
+	// case 0xd6: // Ö
+	// 	t.currentToken.text += "Ö"
 	default:
-		if b > 127 {
-			fmt.Printf("Invalid non-ascii character: %x\n", b)
-		} else {
-			t.currentToken.text += string(rune(b))
+		// Normal text is UTF-16 Little-endian
+		secondByte, err := t.reader.ReadByte()
+		if err != nil {
+			return err
 		}
+		t.currentToken.rawData = append(t.currentToken.rawData, uint16(b)|(uint16(secondByte)<<8))
 	}
 	return nil
 }

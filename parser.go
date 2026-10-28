@@ -43,6 +43,7 @@ func parseMessage(message []byte) {
 				format:      currentFormat,
 				text:        "",
 				specialType: Text,
+				rawData:     make([]uint16, 0),
 			},
 			reader: bytes.NewReader(message),
 		},
