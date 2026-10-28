@@ -10,16 +10,6 @@ import (
 	"strings"
 )
 
-const (
-	groupNumber   = "number"
-	groupCategory = "category"
-	groupCount    = "count"
-	groupProduct  = "product"
-	groupExtra    = "extra"
-	groupUser     = "user"
-	groupDate     = "date"
-)
-
 var (
 	monthReplacer = strings.NewReplacer(
 		" jan ", " Jan ",
