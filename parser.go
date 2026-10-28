@@ -59,6 +59,7 @@ func parseMessage(message []byte) {
 		log.Println("Could not create data out:", err.Error(), "raw:\n", formatHex(message))
 		return
 	}
+	kvittoParser.tokenizer.print()
 	switch kvittoParser.bongType {
 	case BongKvitto:
 		kvittoParser.kvitto.publish()
@@ -200,10 +201,6 @@ func (p *BongParser) parseHeader() error {
 	}
 
 	token := p.readToken()
-	if token == nil {
-		println("A")
-	}
-
 	matches := RegexTargetPrinter.FindStringSubmatch(token.text)
 
 	if len(matches) <= 1 {
