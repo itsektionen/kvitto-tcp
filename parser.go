@@ -59,7 +59,7 @@ func parseMessage(message []byte) {
 		log.Println("Could not create data out:", err.Error(), "raw:\n", formatHex(message))
 		return
 	}
-	kvittoParser.tokenizer.print()
+	// kvittoParser.tokenizer.print()
 	switch kvittoParser.bongType {
 	case BongKvitto:
 		kvittoParser.kvitto.publish()
@@ -239,13 +239,12 @@ func (p *BongParser) parseBody() error {
 		if p.expectFormat("0B") {
 			return nil // Footer;
 		}
-		if p.expectFormats([]string{"10B", "10CBU"}) {
-			// Category assignment
-			p.discardToken() // "\n"
-			p.currentCategory = p.readTrimmed()
-		}
 		if p.expectFormat("10B") {
 			p.discardToken()
+		}
+		if p.expectFormat("10CBU") {
+			// Category assignment
+			p.currentCategory = p.readTrimmed()
 		}
 		if !p.expectFormats([]string{"20B", "10B"}) {
 			return errors.New("wrong format")
@@ -271,6 +270,9 @@ func (p *BongParser) parseBody() error {
 			extra_text := p.readTrimmed()
 			if extra_text != "-----------------------" {
 				currentSold.ExtraText = extra_text
+				if p.expectFormat("10B") {
+					p.discardToken() // "-----------------------"
+				}
 			}
 		}
 		p.kvitto.Sold = append(p.kvitto.Sold, currentSold)
