@@ -1,10 +1,11 @@
 package main
 
 import (
-	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"log"
 	"net"
 	"time"
+
+	mqtt "github.com/eclipse/paho.mqtt.golang"
 )
 
 var mq mqtt.Client
@@ -14,7 +15,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	l, err := net.Listen("tcp4", "0.0.0.0:4321")
+	l, err := net.Listen("tcp4", "0.0.0.0:9100")
 	if err != nil {
 		log.Fatal("Could not open listener:", err)
 	}
