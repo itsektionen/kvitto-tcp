@@ -56,6 +56,7 @@ func parseMessage(message []byte) {
 		kvittoParser.tokenizer.print()
 
 		log.Println("Could not create data out:", err.Error(), "raw:\n", formatHex(message))
+		return
 	}
 	switch kvittoParser.bongType {
 	case BongKvitto:
@@ -65,7 +66,6 @@ func parseMessage(message []byte) {
 	default:
 		log.Println("Invalid bong type:", kvittoParser.bongType)
 	}
-
 }
 
 func (p *BongParser) Parse() error {

@@ -68,7 +68,7 @@ func handle(conn net.Conn) {
 		}
 	}
 	message := combinedBuffer.Bytes()
-	mq.Publish("kistan/bong/raw", 0, false, message)
+	mq.Publish("kistan/bong/raw", 0, false, []byte(formatHex(message)))
 
 	parseMessage(message)
 }
