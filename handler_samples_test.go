@@ -52,11 +52,11 @@ func TestSampleHexJSON(t *testing.T) {
 				t.Fatalf("Invalid input data")
 			}
 
-			if len(client.payloads) != 1 {
-				t.Fatalf("expected one MQTT payload, got %d", len(client.payloads))
+			if len(client.payloads) != 2 {
+				t.Fatalf("expected two MQTT payloads (parsed+raw), got %d", len(client.payloads))
 			}
 			var formatted bytes.Buffer
-			if err := json.Indent(&formatted, client.payloads[0], "", "  "); err != nil {
+			if err := json.Indent(&formatted, client.payloads[1], "", "  "); err != nil {
 				t.Fatalf("invalid JSON: %v", err)
 			}
 			t.Logf("generated JSON:\n%s", formatted.String())

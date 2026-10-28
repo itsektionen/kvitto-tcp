@@ -46,7 +46,6 @@ func createKvitto(message []byte) (Kvitto, error) {
 
 		return kvittoParser.kvitto, fmt.Errorf("Error parsing kvitto %w", err)
 	}
-	kvittoParser.tokenizer.print()
 
 	return kvittoParser.kvitto, nil
 }

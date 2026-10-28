@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"fmt"
 	"io"
 	"log"
 	"net"
@@ -67,12 +68,21 @@ func handle(conn net.Conn) {
 		}
 	}
 	message := combinedBuffer.Bytes()
+	mq.Publish("kistan/kvitto/raw", 0, false, message)
 
 	res, err := createKvitto(message)
 
 	if err != nil {
-		log.Println("Could not create data out:", err.Error())
+		log.Println("Could not create data out:", err.Error(), "raw:\n", formatHex(message))
 		return
 	}
 	res.publish()
+}
+
+func formatHex(data []byte) string {
+	out := ""
+	for _, b := range data {
+		out += fmt.Sprintf("%02x", b)
+	}
+	return out
 }
