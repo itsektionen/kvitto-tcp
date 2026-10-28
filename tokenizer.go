@@ -300,7 +300,10 @@ func (t *Tokenizer) escPosMessage(firstByte byte) error {
 	commandId := binary.BigEndian.Uint16([]byte{firstByte, secondByte})
 	commandOperator, ok := EscCommands[commandId]
 	if !ok {
-		_, _ = t.reader.ReadByte()
+		// Note: Most commands are 3 bytes,
+		// thus if it is desired to not give up
+		//
+		//_, _ = t.reader.ReadByte()
 		return fmt.Errorf("unknown_%x", commandId)
 	} else {
 		operands := []byte{}
