@@ -54,6 +54,7 @@ func setupMQTT() error {
 	opts.AddBroker("tcp://server.insektionen.se:1883")
 	opts.SetUsername(mqttUsername)
 	opts.SetPassword(mqttPassword)
+	opts.SetClientID("KvittoTcp")
 	opts.SetAutoReconnect(true)
 	opts.SetCleanSession(true)
 	opts.SetPingTimeout(time.Second * 30)
