@@ -15,6 +15,8 @@ var mqttUsername string = ""
 var mqttPassword string = ""
 
 func main() {
+	mqttUsername = os.Getenv("MQTT_USERNAME")
+	mqttPassword = os.Getenv("MQTT_PASSWORD")
 	if err := setupMQTT(); err != nil {
 		log.Fatal(err)
 	}
@@ -24,8 +26,6 @@ func main() {
 	} else {
 		log.Println("MQTT_TOPIC not set, defaulting to", mqttTopic)
 	}
-	mqttUsername = os.Getenv("MQTT_USERNAME")
-	mqttPassword = os.Getenv("MQTT_PASSWORD")
 
 	l, err := net.Listen("tcp4", "0.0.0.0:9100")
 	if err != nil {
