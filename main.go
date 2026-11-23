@@ -1,20 +1,33 @@
 package main
 
 import (
-	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"log"
 	"net"
+	"os"
 	"time"
+
+	mqtt "github.com/eclipse/paho.mqtt.golang"
 )
 
 var mq mqtt.Client
+var mqttTopic string = "kistan/bong"
+var mqttUsername string = ""
+var mqttPassword string = ""
 
 func main() {
 	if err := setupMQTT(); err != nil {
 		log.Fatal(err)
 	}
+	envMqttTopic := os.Getenv("MQTT_TOPIC")
+	if envMqttTopic != "" {
+		mqttTopic = envMqttTopic
+	} else {
+		log.Println("MQTT_TOPIC not set, defaulting to", mqttTopic)
+	}
+	mqttUsername = os.Getenv("MQTT_USERNAME")
+	mqttPassword = os.Getenv("MQTT_PASSWORD")
 
-	l, err := net.Listen("tcp4", "0.0.0.0:4321")
+	l, err := net.Listen("tcp4", "0.0.0.0:9100")
 	if err != nil {
 		log.Fatal("Could not open listener:", err)
 	}
@@ -39,6 +52,8 @@ func main() {
 func setupMQTT() error {
 	opts := mqtt.NewClientOptions()
 	opts.AddBroker("tcp://server.insektionen.se:1883")
+	opts.SetUsername(mqttUsername)
+	opts.SetPassword(mqttPassword)
 	opts.SetAutoReconnect(true)
 	opts.SetCleanSession(true)
 	opts.SetPingTimeout(time.Second * 30)
